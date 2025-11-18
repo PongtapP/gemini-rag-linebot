@@ -17,6 +17,14 @@ import json
 line_bot_api = LineBotApi(settings.LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(settings.LINE_CHANNEL_SECRET)
 
+# --- โหลดการตั้งค่า Langflow จาก .env ---
+# เราจะโหลดค่า Config ทั้งหมดไว้ที่นี่ เพื่อให้ handle_message สะอาดขึ้น
+# และเป็นการเตรียมพร้อมสำหรับ Production Mode
+LANGFLOW_API_URL = os.environ.get("LANGFLOW_API_URL") # เช่น http://localhost:7860/api/v1/run/
+FLOW_ID = os.environ.get("FLOW_ID")               # เช่น 568fe4cc-f389...
+LANGFLOW_API_KEY = os.environ.get("LANGFLOW_API_KEY")   # sk-....
+# --- สิ้นสุดการตั้งค่าใหม่ ---
+
 # ฟังก์ชันนี้ทำหน้าที่เป็น "ประตู" (Webhook Endpoint)
 # @csrf_exempt: คือ "ป้ายยกเว้น" ที่บอก Django ว่า "ไม่ต้องตรวจสอบ CSRF Token"
 # เพราะ Request นี้มาจาก LINE Server โดยตรง ไม่ได้มาจากหน้าเว็บ
@@ -90,56 +98,99 @@ def handle_message(event):
         # เพื่อให้การทำงานหลัก (เรียก Langflow) ยังคงดำเนินต่อไปได้
         print(f"!!! [UI] Failed to start loading animation: {e}")
         pass
+    # --- สิ้นสุด Logic Loading Animation ---
 
-    # เตรียมข้อมูลและ Header สำหรับเรียก Langflow (RAG)
-    langflow_url = os.getenv('LANGFLOW_URL')
-    langflow_key = os.getenv('LANGFLOW_API_KEY')
-    
+    # ตรวจสอบว่า Configs (ที่โหลดด้านบน) ครบถ้วนหรือไม่
+    if not LANGFLOW_API_URL or not FLOW_ID or not LANGFLOW_API_KEY:
+        print("!!! Error: LANGFLOW_API_URL, FLOW_ID, หรือ LANGFLOW_API_KEY ไม่ได้ตั้งค่าใน .env")
+        line_bot_api.reply_message(
+            reply_token,
+            TextSendMessage(text="Error: RAG (Langflow) ไม่ได้ตั้งค่าใน .env")
+        )
+        return
+
+    # สร้าง URL ปลายทาง
+    # (แทนที่ os.getenv('LANGFLOW_URL') เดิม)
+    full_url = f"{LANGFLOW_API_URL}{FLOW_ID}"
+
+    # กำหนด Headers: ใช้ X-Api-Key (สำหรับ Production Auth)
+    # นี่คือการเปลี่ยนแปลงสำคัญเพื่อแก้ปัญหา 403 Forbidden
+    # เราจะไม่ใช้ 'Authorization: Bearer' อีกต่อไป
     headers = {
-        "Authorization": f"Bearer {langflow_key}",
-        "Content-Type": "application/json"
+        "accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Api-Key": LANGFLOW_API_KEY 
     }
 
+    # สร้าง Payload: เปลี่ยนเป็น 'text'/'chat'
+    # เราต้องการ 'json' output เพื่อให้ Python (ในข้อ 6) parse ได้ง่าย
+    # (แทน 'chat'/'chat' เดิม)
     payload = {
-        "output_type": "chat",
-        "input_type": "chat",
-        "input_value": user_question,
-        # ใช้ user_id เป็น session_id เพื่อให้ Langflow สามารถจดจำ Session ได้
+        "input_value": user_question,   # <-- (แก้ไข) แก้ไขจาก user_query เป็น user_question
+        "input_type": "chat",       
+        "output_type": "chat",      # <-- (แก้ไข) เปลี่ยน "json" กลับเป็น "chat"
         "session_id": user_id 
     }
 
     try:
-        print(f"Asking Langflow (URL: {langflow_url}): {user_question}")
+        # ยิง Request ไปยัง Langflow (ใช้ full_url ใหม่)
+        print(f"-> Calling Langflow (Production Mode): {full_url}")
+        print(f"-> Payload: {payload}")
+        print(f"-> Using API Key: {LANGFLOW_API_KEY[:4]}...")
 
-        response = requests.post(langflow_url, json=payload, headers=headers, timeout=120)
+        response = requests.post(
+            full_url, 
+            headers=headers, 
+            json=payload, 
+            timeout=120
+        )
 
         response.raise_for_status() 
 
-        # ดึงคำตอบจาก JSON
-        data = response.json()
+        # อ่านคำตอบจาก JSON
+        final_output = response.json()
         
-        rag_answer = "Error: ไม่พบ 'outputs[0].outputs[0].results.message.data.text' ใน JSON"
+
+        rag_answer = "ขออภัย ไม่พบคำตอบที่ชัดเจน" # (ค่าเริ่มต้น)
         
+        # Logic การ Parse JSON ที่อัปเดตตาม RAW JSON
         try:
-            # (นี่คือ Path ที่ถูกแก้ไขล่าสุดตามการวิเคราะห์ของคุณ)
-            rag_answer = data['outputs'][0]['outputs'][0]['results']['message']['data']['text']
-        
-        except (KeyError, IndexError, TypeError) as e:
-            # (ถ้า Path พังระหว่างทาง)
-            print(f"!!! JSON Parsing Error: ไม่พบ Path ที่ถูกต้อง (Correct Path): {e}")
-            # (rag_answer จะยังคงเป็น Error: ไม่พบ...)
+            # พยายามดึงคำตอบจาก Path ที่ 1 (สั้นที่สุดและเห็นใน Log)
+            rag_answer = final_output['outputs'][0]['outputs'][0]['results']['message']['text']
+            
+        except (KeyError, IndexError, TypeError):
+            try:
+                # พยายามดึงคำตอบจาก Path ที่ 2 (Path เดิมจากขั้น 4.3)
+                rag_answer = final_output['outputs'][0]['outputs'][0]['results']['message']['data']['text']
+                
+            except (KeyError, IndexError, TypeError):
+                try:
+                    # พยายามดึงคำตอบจาก Path ที่ 3 (Fallback)
+                    rag_answer = final_output['outputs'][0]['outputs'][0]['outputs']['message']['message']
+                
+                except (KeyError, IndexError, TypeError) as e:
+                    print(f"!!! JSON Parsing Error: ไม่พบ Path ที่ถูกต้องทั้งหมดหลังจากพยายาม 3 รูปแบบ: {e}")
+                    # rag_answer จะยังคงเป็นค่าเริ่มต้น
             
         print(f"Langflow Answered: {rag_answer[:50]}...")
 
         # ส่งคำตอบ RAG (RAG Answer) กลับไปหาผู้ใช้
-        # การส่งข้อความตอบกลับด้วย reply_message จะยกเลิก Loading Animation อัตโนมัติ
+        # (เก็บไว้เหมือนเดิม)
         line_bot_api.reply_message(
             reply_token,
             TextSendMessage(text=rag_answer)
         )
 
+    except requests.exceptions.HTTPError as e:
+        # เพิ่มการจัดการ HTTP Error (เช่น 403/404)
+        print(f"!!! Langflow HTTPError: {e.response.status_code}")
+        print(f"!!! Response Body: {e.response.text[:200]}...")
+        line_bot_api.reply_message(
+            reply_token,
+            TextSendMessage(text=f"Error: Langflow HTTP {e.response.status_code}. (ตรวจสอบ API Key/Flow ID)")
+        )
     except requests.exceptions.RequestException as e:
-        # (กรณี "ยิง" (Call) Langflow "ล้มเหลว" (Failed) (เช่น 403 Forbidden))
+        # (Connection error)
         print(f"!!! Langflow RequestException: {e}")
         line_bot_api.reply_message(
             reply_token,
@@ -150,6 +201,7 @@ def handle_message(event):
         print(f"!!! LineBotApiError (LINE_CHANNEL_ACCESS_TOKEN ผิด): {e}")
     
     except Exception as e:
+        # (Error ทั่วไป)
         print(f"!!! An unexpected error occurred in handle_message (RAG): {e}")
         line_bot_api.reply_message(
             reply_token,

@@ -42,8 +42,8 @@ Follow these steps to get the project up and running:
 ### 1. Clone the Repository
 
 ```bash
-git clone <your-repository-url>
-cd RAG-LINE-bridge
+git clone https://github.com/PongtapP/gemini-rag-linebot.git
+cd gemini-rag-linebot
 ```
 
 ### 2. Set Up Environment Variables

@@ -8,7 +8,6 @@ A proof-of-concept (POC) project demonstrating the integration of a LINE Messagi
 *   **Retrieval-Augmented Generation (RAG):** Utilizes a vector store for efficient document indexing and retrieval to provide context-aware answers.
 *   **Gemini API:** Leverages Google's powerful Gemini models for natural language understanding and generation.
 *   **Django Backend:** A robust backend framework to handle webhook events and business logic.
-*   **Dockerized Environment:** Comes with a `docker-compose.yml` for easy setup and deployment.
 
 ## Architecture (Conceptual)
 
@@ -30,8 +29,8 @@ The following diagram illustrates the flow of a user's message from the LINE app
 
 Before you begin, ensure you have the following installed:
 
-*   [Docker](https://www.docker.com/get-started) and [Docker Compose](https://docs.docker.com/compose/install/)
-*   [Python 3.10+](https://www.python.org/downloads/) (for local development and setup)
+*   [Python 3.10+](https://www.python.org/downloads/)
+*   [pip](https://pip.pypa.io/en/stable/installation/) for package installation.
 *   Access to the Gemini API and a valid API key.
 *   A LINE Developer account and a channel with a channel access token and channel secret.
 
@@ -46,7 +45,24 @@ git clone https://github.com/PongtapP/gemini-rag-linebot.git
 cd gemini-rag-linebot
 ```
 
-### 2. Set Up Environment Variables
+### 2. Set Up a Virtual Environment
+
+It is highly recommended to use a virtual environment to manage project dependencies.
+
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
+```
+
+### 3. Install Dependencies
+
+Install the required Python packages using pip:
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Set Up Environment Variables
 
 Create a `.env` file by copying the example file:
 
@@ -72,7 +88,7 @@ LANGFLOW_API_KEY=<your-langflow-api-key>
 FLOW_ID=<your-langflow-flow-id>
 ```
 
-### 3. Set Up the RAG Index
+### 5. Set Up the RAG Index
 
 This POC uses a local vector store for the RAG index. To set up the index, you will need to:
 
@@ -104,17 +120,25 @@ This POC uses a local vector store for the RAG index. To set up the index, you w
     vectorstore.save_local("faiss_index")
     ```
 
-### 4. Build and Run with Docker Compose
+### 6. Run Database Migrations
 
-Once your `.env` file is configured and your RAG index is built, you can start the application using Docker Compose:
+Apply the initial database migrations for Django:
 
 ```bash
-docker-compose up --build
+python manage.py migrate
 ```
 
-This will build the Docker image and start the Django development server on `http://localhost:8000`.
+### 7. Run the Development Server
 
-### 5. Configure the LINE Webhook
+Start the Django development server:
+
+```bash
+python manage.py runserver
+```
+
+The server will be running on `http://localhost:8000`.
+
+### 8. Configure the LINE Webhook
 
 You will need to expose your local server to the internet using a tool like [ngrok](https://ngrok.com/) to set up the LINE webhook.
 
@@ -132,8 +156,6 @@ You should now be able to send messages to your LINE Bot and receive responses f
 ```
 .
 ├── .gitignore
-├── Dockerfile
-├── docker-compose.yml
 ├── manage.py
 ├── README.md
 ├── requirements.txt

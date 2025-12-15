@@ -17,15 +17,15 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
-# Import (นำเข้า) 'views' จาก App 'line_bot'
+# Import 'views' from the 'line_bot' app
 from line_bot import views as line_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
 
-    # URL สำหรับ Webhook Endpoint
-    # นี่คือ "ประตู" ที่ LINE Server จะยิง 'POST' request เข้ามา
-    # 'callback/': คือ URL (เช่น https://your-domain.com/callback/)
-    # line_views.callback: คือฟังก์ชัน 'callback' ใน 'line_bot/views.py' ที่จะถูกเรียก
+    # URL for the Webhook Endpoint
+    # This is the "gate" where the LINE Server will send a 'POST' request.
+    # 'callback/': is the URL (e.g., https://your-domain.com/callback/)
+    # line_views.callback: is the 'callback' function in 'line_bot/views.py' that will be called
     path('callback/', line_views.callback, name='callback'),
 ]

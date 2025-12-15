@@ -1,12 +1,12 @@
-# Virtual Environment (ห้ามเอา venv ขึ้น Git เด็ดขาด)
+# Virtual Environment
 venv/
 
 # Python cache files
 __pycache__/
 *.pyc
 
-# Django database (ที่เราจะสร้างในอนาคต)
+# Django database
 db.sqlite3
 
-# Environment variables (ไฟล์เก็บ Keys/Secrets ในอนาคต)
+# Environment variables
 .env

@@ -169,3 +169,13 @@ You should now be able to send messages to your LINE Bot and receive responses f
 ## API Endpoints
 
 *   `POST /callback/`: The webhook endpoint for the LINE Messaging API.
+   
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Disclaimer
+
+This project is a Proof of Concept (POC) for educational purposes.
+* **API Costs:** Usage of the Google Gemini API and LINE Messaging API may incur costs. Please check the pricing policies of the respective services.
+* **Security:** Ensure you do not expose your `.env` file or API keys publicly. The author is not responsible for any costs or security breaches resulting from the use of this code.

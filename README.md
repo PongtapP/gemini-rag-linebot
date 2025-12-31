@@ -25,6 +25,31 @@ The following diagram illustrates the flow of a user's message from the LINE app
 6.  The Gemini API generates a response.
 7.  The Django application sends the generated response back to the user via the LINE Messaging API.
 
+## RAG & Agent Flows (Experimental)
+
+This repository includes several Langflow JSON blueprints located in the `flows/` directory. These files represent my learning journey from basic RAG to more complex multi-agent systems.
+
+**Note:** These flows are Proof of Concept (POC) implementations. I am openly sharing my learning process, including current limitations and workarounds.
+
+* **`01_basic_rag_pipeline.json`**
+    * A standard Retrieval-Augmented Generation pipeline using ChromaDB. This serves as the baseline for the project.
+
+* **`02_rag_with_bge_reranker.json`**
+    * An enhanced version of the basic pipeline incorporating the BGE Reranker model.
+    * **Observation:** While this significantly improves retrieval accuracy, I noted a trade-off with increased latency compared to the basic pipeline.
+
+* **`03_agent_seq_diagram_generator.json`**
+    * A Multi-Agent system designed to generate Sequence Diagrams from documentation.
+    * **Current Limitation:** I am still exploring how to implement a proper "feedback loop" in Langflow (where an Agent self-corrects based on feedback).
+    * **Workaround:** I implemented a linear "chain-like" structure where a subsequent agent reviews and refines the output of the previous agent, rather than a dynamic loop.
+
+* **`04_multi_tool_agent_core.json`**
+    * An Agent equipped with multiple capabilities: RAG (Knowledge Base), API (External Tools), and SQL (Database Querying).
+    * **Current Limitation:** While the agent can select the appropriate tool for a specific query, I am still learning how to orchestrate the agent to autonomously combine *multiple* tools to solve a single complex task effectively.
+
+**Reflection:**
+Using Langflow provided excellent visualization for these concepts. However, for handling complex state management (like loops and advanced orchestration), I realize that a code-first approach (e.g., LangGraph or pure Python) might offer more control in a production environment.
+
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
